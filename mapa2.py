@@ -13,29 +13,32 @@ player_x = 100
 player_y = 100
 
 play = "jogando"
-pontos_para_vitoria = 5
+pontos_para_vitoria = random.randint(15, 25)
 fps = 10
 
 tempo_acumulado_vilao = 0
 tempo_acumulado_vilao_2 = 0
 tempo_acumulado_vilao_3 = 0
 tempo_acumulado_vilao_4 = 0
+tempo_acumulado_vilao_5 = 0
 
 vilao_indice_frame = 0
 vilao_indice_frame_2 = 0
 vilao_indice_frame_3 = 0
 vilao_indice_frame_4 = 0
+vilao_indice_frame_5 = 0
 
 vilao_tempo_animacao = 0
 vilao_tempo_animacao_2 = 0
 vilao_tempo_animacao_3 = 0
 vilao_tempo_animacao_4 = 0
+vilao_tempo_animacao_5 = 0
 
 
 player = {
     "vida": 3,
     "pontuacao": 0,
-    "velocidade": 5,
+    "velocidade": 3,
     "x": 50,
     "y": 50,
     "collided": False,
@@ -57,6 +60,13 @@ pesca = {
     "x": 0,
     "y": 0,
     "collected": False,
+    "movimento_ativo": False, 
+    "direcao": None,
+    "velocidade_passo": 5,
+    "minimo_de_passos": 6,
+    "passos_restantes": 0,
+    "intervalo_passos": 250,
+    "tempo_acumulado": 0,
 }
 
 vilao = {
@@ -82,7 +92,7 @@ vilao_2 = {
     "velocidade_passo": 5,
     "minimo_de_passos": 15,
     "passos_restantes": 0,
-    "intervalo_passos_do_vilao": 0,
+    "intervalo_passos_do_vilao": 50,
 }
 
 vilao_3 = {
@@ -105,11 +115,24 @@ vilao_4 = {
     "y": 0,
     "img": "lapras",
     "direcao": None,
-    "velocidade_passo": 10,
-    "minimo_de_passos": 10,
+    "velocidade_passo": 5,
+    "minimo_de_passos": 15,
     "passos_restantes": 0,
     "intervalo_passos_do_vilao": 0,
     "ativo": False 
+}
+
+vilao_5 = {
+    "width": bloco*1.5,
+    "height": bloco*1.5,
+    "x": 0,
+    "y": 0,
+    "img": "oh",
+    "direcao": None,
+    "velocidade_passo": 5,
+    "minimo_de_passos": 15,
+    "passos_restantes": 0,
+    "intervalo_passos_do_vilao": 0,
 }
 
 sudo = {
@@ -117,6 +140,13 @@ sudo = {
     "height": bloco,
     "x": int(width/2 - bloco/2),
     "y": int(height/2 - bloco/2),
+}
+
+snorlax = {
+    "width": bloco*3, 
+    "height": bloco*2,
+    "x": width - bloco*2,
+    "y": 0,
 }
 
 pedras = []
@@ -145,7 +175,7 @@ def load_mapa(filename):
     file.close()
     
 def check_box_collision(x1, y1, w1, h1, x2, y2, w2, h2):
-   return (x1 < x2 + w2) and (x2 < x1 + w1) and (y1 < y2 + h2) and (y2 < y1 + h1)
+    return (x1 < x2 + w2) and (x2 < x1 + w1) and (y1 < y2 + h2) and (y2 < y1 + h1)
 
 def pega_agua():
     global agua
@@ -173,10 +203,10 @@ def spawna_vilao(vilao):
     vilao["direcao"] = random.randint(0, 3)
     vilao["passos_restantes"] = 2
 
-def get_vilao_tile_pos(vilao):
-    tile_x = int((vilao["x"] + vilao["width"] / 2) // bloco)
-    tile_y = int((vilao["y"] + vilao["height"] / 2) // bloco)
-    return tile_x, tile_y
+def busca_posicao_vilao(vilao):
+    x = int((vilao["x"] + vilao["width"] / 2) // bloco)
+    y = int((vilao["y"] + vilao["height"] / 2) // bloco)
+    return x, y
 
 def move_vilao(vilao):
     if vilao["passos_restantes"] <= 0:
@@ -195,15 +225,13 @@ def move_vilao(vilao):
     elif vilao["direcao"] == 3:
         vilao["x"] += vilao["velocidade_passo"]
         
-    new_tile_x, new_tile_y = get_vilao_tile_pos(vilao)
+    new_x, new_y = busca_posicao_vilao(vilao)
     
     posicao_valida = False
     
-    if 0 <= new_tile_y < len(mapa) and 0 <= new_tile_x < len(mapa[new_tile_y]):
-        if mapa[new_tile_y][new_tile_x].strip() == "A":
+    if 0 <= new_y < len(mapa) and 0 <= new_x < len(mapa[new_y]):
+        if mapa[new_y][new_x].strip() == "A":
             posicao_valida = True
-
-    
 
     if posicao_valida:
         vilao["passos_restantes"] -= 1
@@ -222,19 +250,31 @@ def update_vilao(dt, vilao, tempo_acumulado_vilao):
         tempo_acumulado_vilao -= vilao["intervalo_passos_do_vilao"]
         
     if check_box_collision(player["x"], player["y"], player["width"], player["height"], vilao["x"], vilao["y"], vilao["width"], vilao["height"]):
-        player["vida"] -= 1
+        if vilao["img"] == "gyarados" or vilao["img"] == "shiny":
+            player["vida"] -= 2
+        else:
+            player["vida"] -= 1
         spawna_vilao(vilao)
     return tempo_acumulado_vilao
 
-def update_pesca():
+def update_pesca(dt):
     if not pesca["collected"]:
         if check_box_collision(player["x"], player["y"], player["width"], player["height"], pesca["x"], pesca["y"], pesca["width"], pesca["height"]):
             pesca["collected"] = True
+            pesca["movimento_ativo"] = False
             spawna_pesca()
             player["pontuacao"] += 1
+            return
+
+    if pesca["movimento_ativo"]:
+        pesca["tempo_acumulado"] += dt
+        if pesca["tempo_acumulado"] >= pesca["intervalo_passos"]:
+            move_vilao(pesca)
+            pesca["tempo_acumulado"] -= pesca["intervalo_passos"]
 
 def carregar_imagens_pesca():
     global pesca_animacao
+
     pesca_animacao = []
     for i in range(1, 3):
         img = pygame.image.load(f"magi_{i}.png")
@@ -243,6 +283,7 @@ def carregar_imagens_pesca():
 
 def carregar_imagens_player():
     global player_esquerdo_lado, player_direito_lado, player_costa, player_frente
+
     player_esquerdo_lado_1 = pygame.image.load("mario_lado_1.png")
     player_esquerdo_lado_1 = pygame.transform.scale(player_esquerdo_lado_1, (bloco, bloco))
     player_esquerdo_lado_2 = pygame.image.load("mario_lado_2.png")
@@ -281,11 +322,17 @@ def carregar_imagens_sudo():
     sudo_animacao_360.append(frame_5_invertido)
     sudo_animacao_360.append(frame_6_invertido)
 
+def carregar_imagem_snorlax():
+    global snorlax_img
+    snorlax_img = pygame.image.load("snorlax.png")
+    snorlax_img = pygame.transform.scale(snorlax_img, (snorlax["width"], snorlax["height"]))
+    
 def reset():
     global player, vilao
     global player_indice_frame, player_tempo_animacao
     global pesca_indice_frame, pesca_tempo_animacao
     global sudo_indice_frame, sudo_tempo_animacao
+    global vilao_5
 
     player["vida"] = 3
     player["pontuacao"] = 0
@@ -293,6 +340,8 @@ def reset():
     player["y"] = 50
     player["collided"] = False
     player["direcao"] = 1
+
+    pesca["movimento_ativo"] = False
 
     vilao["width"] = bloco*1.5
     vilao["height"] = bloco*1.5
@@ -315,6 +364,8 @@ def reset():
     vilao_3["minimo_de_passos"] = 15
 
     vilao_4["ativo"] = False
+    
+    vilao_5["velocidade_passo"] = 5
 
     player_indice_frame = 0
     player_tempo_animacao = 0
@@ -327,32 +378,39 @@ def reset():
 
 def load():
     global clock
-    global agua_img
-    global tempo_acumulado_vilao, tempo_acumulado_vilao_2, tempo_acumulado_vilao_3, tempo_acumulado_vilao_4, vilao, vilao_2, vilao_3, vilao_4
+    global pedra_img
+    global tempo_acumulado_vilao, tempo_acumulado_vilao_2, tempo_acumulado_vilao_3, tempo_acumulado_vilao_4, tempo_acumulado_vilao_5, vilao, vilao_2, vilao_3, vilao_4, vilao_5
     global play
-    global sudo
-    
-    reset()
+    global sudo, snorlax
 
-    agua_img = pygame.image.load("water.png")
+    reset()
+    pedra_img = pygame.image.load("pedra.png")
+    pedra_img = pygame.transform.scale(pedra_img, (bloco, bloco))
+    
     carregar_imagens_player()
     carregar_imagens_sudo()
     carregar_imagens_pesca()
-
+    carregar_imagem_snorlax()
     clock = pygame.time.Clock()
     define_tamanho_janela(filename)
     load_mapa(filename)
+
     sudo["x"] = int(width / 2 - sudo["width"] / 2)
     sudo["y"] = int(height / 2 - sudo["height"] / 2)
+    snorlax["x"] = width - snorlax["width"]*3
+    
     pega_agua()
     spawna_pesca()
     spawna_vilao(vilao)
     spawna_vilao(vilao_2)
     spawna_vilao(vilao_3)
+    spawna_vilao(vilao_5)
+
     tempo_acumulado_vilao = 0
     tempo_acumulado_vilao_2 = 0
     tempo_acumulado_vilao_3 = 0
     tempo_acumulado_vilao_4 = 0
+    tempo_acumulado_vilao_5 = 0
     play = "jogando"
 
 def mostra_vida(screen):
@@ -363,12 +421,12 @@ def mostra_vida(screen):
     largura_coracao = coracao_img.get_width()
     for i in range(player["vida"]):
         x_pos = (width - 10) - (largura_coracao * (i + 1)) - (espacamento * i)
-        screen.blit(coracao_img, (x_pos, 10))
+        screen.blit(coracao_img, (x_pos, 15))
 
 def mostra_pontos(screen):
-    fonte_pontuacao = pygame.font.SysFont('Arial', 30)
-    superficie_texto = fonte_pontuacao.render(f"Pontos: {player['pontuacao']}", True, (0, 0, 0))
-    screen.blit(superficie_texto, (10, 10))
+    fonte_pontuacao = pygame.font.SysFont('Arial', 24)
+    superficie_texto = fonte_pontuacao.render(f"Colete {pontos_para_vitoria - player['pontuacao']} MAGIKARPS", True, (0, 0, 0))
+    screen.blit(superficie_texto, (15, 10))
 
 def desenha_avatar(screen):
     global player, player_tempo_animacao, fps, player_indice_frame, player_costa
@@ -395,7 +453,6 @@ def desenha_avatar(screen):
         player_indice_frame += 1
         if player_indice_frame >= len(imgs):
             player_indice_frame = 0
-
     screen.blit(imgs[player_indice_frame], (player["x"], player["y"]))
 
 def desenha_pesca(screen):
@@ -420,7 +477,6 @@ def desenha_pesca(screen):
 
 def desenha_vilao(screen, vilao, tempo_animacao, indice_frame):
     global fps
-
     if vilao.get("ativo") == False:
         return tempo_animacao, indice_frame
     
@@ -457,9 +513,6 @@ def desenha_vilao(screen, vilao, tempo_animacao, indice_frame):
     elif vilao["direcao"] == 3:
         imgs = vilao_direito_lado
 
-    if not imgs:
-        return 
-
     if indice_frame >= len(imgs):
         indice_frame = 0
 
@@ -468,15 +521,11 @@ def desenha_vilao(screen, vilao, tempo_animacao, indice_frame):
     if tempo_animacao >= fps:
         tempo_animacao = 0
         indice_frame += 1 
-        
         if indice_frame >= len(imgs):
             indice_frame = 0
 
     screen.blit(imgs[indice_frame], (vilao["x"], vilao["y"]))
     return tempo_animacao, indice_frame
-
-def desenha_agua(bloco_x, bloco_y):
-    screen.blit(agua_img, (bloco_x, bloco_y))
 
 def desenha_sudo(screen):
     global sudo, fps, sudo_indice_frame, sudo_tempo_animacao
@@ -499,7 +548,7 @@ def desenha_sudo(screen):
     screen.blit(imgs[sudo_indice_frame], (sudo["x"], sudo["y"]))
 
 def update(dt):
-    global player, pesca, play, vilao, tempo_acumulado_vilao, vilao_2, tempo_acumulado_vilao_2, vilao_3, tempo_acumulado_vilao_3, vilao_4, tempo_acumulado_vilao_4
+    global player, pesca, play, vilao, tempo_acumulado_vilao, vilao_2, tempo_acumulado_vilao_2, vilao_3, tempo_acumulado_vilao_3, vilao_4, tempo_acumulado_vilao_4, vilao_5, tempo_acumulado_vilao_5
     keys = pygame.key.get_pressed()
 
     colisao = False
@@ -543,11 +592,27 @@ def update(dt):
             colisao = True
             break
 
+    if check_box_collision(player["x"], player["y"], player["width"], player["height"], sudo["x"], sudo["y"], sudo["width"], sudo["height"]):
+        player["x"] = old_x
+        colisao = True
+        
+    if check_box_collision(player["x"], player["y"], player["width"], player["height"], sudo["x"], sudo["y"], sudo["width"], sudo["height"]):
+        player["y"] = old_y
+        colisao = True
+
+    if check_box_collision(player["x"], player["y"], player["width"], player["height"], snorlax["x"], snorlax["y"], snorlax["width"], snorlax["height"]):
+        player["x"] = old_x
+        colisao = True
+
+    if check_box_collision(player["x"], player["y"], player["width"], player["height"], snorlax["x"], snorlax["y"], snorlax["width"], snorlax["height"]):
+        player["y"] = old_y
+        colisao = True
+
     player["collided"] = colisao
     
-    update_pesca()
+    update_pesca(dt)
 
-    if player["pontuacao"] >= pontos_para_vitoria * 60/100:
+    if player["pontuacao"] >= pontos_para_vitoria/2:
         if not vilao_4["ativo"]:
             vilao_4["ativo"] = True
             spawna_vilao(vilao_4)
@@ -564,11 +629,18 @@ def update(dt):
         vilao_3["img"] = "sharpedo"
         vilao_3["width"] = bloco*1.5
         vilao_3["height"] = bloco*1.5
+        vilao_5["velocidade_passo"] = 8
+    
+    if player["pontuacao"] == pontos_para_vitoria - 1 and not pesca["movimento_ativo"]:
+        pesca["movimento_ativo"] = True
+        pesca["tempo_acumulado"] = 0
+        spawna_vilao(pesca)
 
     tempo_acumulado_vilao = update_vilao(dt, vilao, tempo_acumulado_vilao)
     tempo_acumulado_vilao_2 = update_vilao(dt, vilao_2, tempo_acumulado_vilao_2)
     tempo_acumulado_vilao_3 = update_vilao(dt, vilao_3, tempo_acumulado_vilao_3)
     tempo_acumulado_vilao_4 = update_vilao(dt, vilao_4, tempo_acumulado_vilao_4)
+    tempo_acumulado_vilao_5 = update_vilao(dt, vilao_5, tempo_acumulado_vilao_5)
 
     if player["vida"] <= 0:
         play = "gameover"
@@ -576,7 +648,7 @@ def update(dt):
         play = "vitoria"
         
 def draw_screen(screen):
-    global pedras, vilao, vilao_tempo_animacao, vilao_indice_frame, vilao_2, vilao_tempo_animacao_2, vilao_indice_frame_2, vilao_indice_frame_3, vilao_tempo_animacao_3,vilao_indice_frame_4, vilao_tempo_animacao_4
+    global pedras, pedra_img, vilao, vilao_tempo_animacao, vilao_indice_frame, vilao_2, vilao_tempo_animacao_2, vilao_indice_frame_2, vilao_indice_frame_3, vilao_tempo_animacao_3,vilao_indice_frame_4, vilao_tempo_animacao_4, vilao_indice_frame_5, vilao_tempo_animacao_5
     pedras = []
     pedras = []
     screen.fill((255,255,255))
@@ -586,7 +658,7 @@ def draw_screen(screen):
             bloco_x = j * bloco
             bloco_y = i * bloco
             if mapa[i][j] == "P":
-                color = (230,235,134)
+                color = (63,125,232)
                 nova_pedra = {
                     "width": bloco,
                     "height": bloco,
@@ -594,6 +666,10 @@ def draw_screen(screen):
                     "y": bloco_y
                 }
                 pedras.append(nova_pedra)
+                pygame.draw.rect(screen, color, ((bloco_x), (bloco_y), bloco, bloco))
+                screen.blit(pedra_img, (bloco_x, bloco_y))
+            if mapa[i][j] == "R":
+                color = (230,235,134)
                 pygame.draw.rect(screen, color, ((bloco_x), (bloco_y), bloco, bloco))
             elif mapa[i][j] == "G":
                 color = (39,153,0)
@@ -608,17 +684,19 @@ def draw_screen(screen):
     vilao_tempo_animacao_2, vilao_indice_frame_2 = desenha_vilao(screen, vilao_2, vilao_tempo_animacao_2, vilao_indice_frame_2)
     vilao_tempo_animacao_3, vilao_indice_frame_3 = desenha_vilao(screen, vilao_3, vilao_tempo_animacao_3, vilao_indice_frame_3)
     vilao_tempo_animacao_4, vilao_indice_frame_4 = desenha_vilao(screen, vilao_4, vilao_tempo_animacao_4, vilao_indice_frame_4)
+    vilao_tempo_animacao_5, vilao_indice_frame_5 = desenha_vilao(screen, vilao_5, vilao_tempo_animacao_5, vilao_indice_frame_5)
     mostra_pontos(screen)
     mostra_vida(screen)
     desenha_sudo(screen)
+    screen.blit(snorlax_img, (snorlax["x"], snorlax["y"]))
 
 def draw_win_screen(screen):
     pelicula = pygame.Surface((width, height), pygame.SRCALPHA)
     pelicula.fill((0, 0, 0, 180))
     screen.blit(pelicula, (0, 0))
 
-    font_win = pygame.font.SysFont('Arial', 60, bold=True)
-    text_win = font_win.render("VITÓRIA! Você é um Mestre Pescador!", True, (255, 255, 0))
+    font_win = pygame.font.SysFont('Arial', 50, bold=True)
+    text_win = font_win.render("VITÓRIA! Você é um Mestre Pescador!", True, (200, 255, 100))
     text_rect = text_win.get_rect(center=(width // 2, height // 2 - 50))
     screen.blit(text_win, text_rect)
 
@@ -669,6 +747,6 @@ pygame.init()
 pygame.mixer.init()
 load()
 screen = pygame.display.set_mode((width, height))
-pygame.display.set_caption("Joguinho")
+pygame.display.set_caption("Peskamon")
 main_loop(screen)
 pygame.quit()
